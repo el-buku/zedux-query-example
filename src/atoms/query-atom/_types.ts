@@ -15,10 +15,14 @@ export interface QueryAtomOptions<TData = unknown, TError = Error> {
     refetchOnMount?: boolean;
     /** Optional: If true, refetch on window focus if data is stale. Defaults to true. */
     refetchOnFocus?: boolean;
-    /** Optional: Number of retries or a function to determine if retry should occur. Defaults to 0. */
+    /** Optional: Number of retries or a function to determine if retry should occur. Defaults to false. */
     retry?: number | boolean | ((failureCount: number, error: TError) => boolean);
     /** Optional: Delay in ms between retries, or a function to calculate delay. Defaults to exponential backoff. */
     retryDelay?: number | ((attemptIndex: number) => number);
+    /** Optional: Delay unit in ms between retries, or a function to calculate delay. Defaults to 1000. */
+    delayUnit?: number;
+    /** Optional: Maximum delay in ms between retries. Defaults to 30000. */
+    maxRetryDelay?: number;
     /** Optional: If true, refetch on reconnect if data is stale. Defaults to true. */
     refetchOnReconnect?: boolean;
     /** Optional: If set to a number, refetch the query at this frequency in milliseconds. Defaults to false. */

@@ -6,7 +6,8 @@ import {
 
 import type { QueryFactoryTemplate, QueryAtomOptions } from "./_types";
 import { injectQuery } from "./injectors/inject-query";
-import { CONFIG_DEFAULTS } from "./_utils";
+import { queryConfigAtom } from "./config-atom";
+import { rootEcosystem } from "../ecosystem";
 
 
 export const queryAtom = <
@@ -19,33 +20,34 @@ export const queryAtom = <
     queryTemplate: QueryFactoryTemplate<TData, TParams>,
     options?: QueryAtomOptions<TData, TError>
 ) => {
-    const {
-        ttl,
-        staleTime = CONFIG_DEFAULTS.staleTime,
-        onSuccess,
-        onError,
-        onSettled,
-        refetchOnMount,
-        refetchOnFocus,
-        retry,
-        retryDelay,
-        refetchOnReconnect,
-        refetchInterval,
-        refetchIntervalInBackground,
-        initialData,
-        throwOnError: _throwOnError,
-        enabled: enabledFromOptions = CONFIG_DEFAULTS.enabled,
-        broadcast = CONFIG_DEFAULTS.broadcast,
-        lazy = CONFIG_DEFAULTS.lazy,
-        suspense = CONFIG_DEFAULTS.suspense, // Default suspense to false
-        debug = CONFIG_DEFAULTS.debug,
-        swr = CONFIG_DEFAULTS.swr,
-    } = options || {};
-    // If suspense is enabled, enabled must also be true, and errors should throw by default
-    const throwOnError = suspense ? true : (_throwOnError ?? false);
-    const maxRetries = typeof retry === "number" ? retry : retry === true ? CONFIG_DEFAULTS.maxRetries : 0; // Default retries
-    const queryFnAtom = atom(`${key}-queryFn`, queryTemplate)
+    const configDefaults = rootEcosystem.getOnce(queryConfigAtom)
+    const ttl = options?.ttl || configDefaults.ttl
     const factory = (...params: TParams) => {
+        const {
+            staleTime = configDefaults.staleTime,
+            onSuccess,
+            onError,
+            onSettled,
+            refetchOnMount,
+            refetchOnFocus,
+            retry,
+            retryDelay,
+            refetchOnReconnect,
+            refetchInterval,
+            refetchIntervalInBackground,
+            initialData,
+            throwOnError: _throwOnError,
+            enabled: enabledFromOptions = configDefaults.enabled,
+            broadcast = configDefaults.broadcast,
+            lazy = configDefaults.lazy,
+            suspense = configDefaults.suspense, // Default suspense to false
+            debug = configDefaults.debug,
+            swr = configDefaults.swr,
+        } = options || {};
+        // If suspense is enabled, enabled must also be true, and errors should throw by default
+        const throwOnError = suspense ? true : (_throwOnError ?? false);
+        const maxRetries = typeof retry === "number" ? retry : retry === true ? configDefaults.maxRetries : 0; // Default retries
+        const queryFnAtom = atom(`${key}-queryFn`, queryTemplate)
         const loadedState = injectAtomValue(queryFnAtom, params);
         const queryFn = typeof loadedState === "function" ? loadedState : loadedState.queryFn;
         const enabledFromFactory = typeof loadedState === "object" ? loadedState.enabled : true; // enabled from factory allows for dependent queries
@@ -71,7 +73,7 @@ export const queryAtom = <
             maxRetries,
             throwOnError,
             enabled: shouldBeEnabled,
-            ttl: ttl ?? CONFIG_DEFAULTS.ttl,
+            ttl,
             debug,
         });
 

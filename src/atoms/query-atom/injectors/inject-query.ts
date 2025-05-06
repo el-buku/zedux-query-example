@@ -29,7 +29,6 @@ import {
     shouldRetry,
     getRetryDelay,
     queryLog,
-    CONFIG_DEFAULTS,
 } from "../_utils";
 
 import type {
@@ -40,33 +39,37 @@ import type {
 } from "../_types";
 import { injectRefetch } from "./inject-refetch";
 import { injectQueryState } from "./inject-query-state"; // Import state machine injector
+import { queryConfigAtom } from "../config-atom";
 
 export const injectQuery = <TData, TError>(
     key: string,
     queryFn: () => Promise<TData>,
     options: QueryAtomOptions<TData, TError>
 ) => {
+    const configDefaults = injectAtomValue(queryConfigAtom)
     const {
         lazy,
         suspense,
-        refetchOnMount = CONFIG_DEFAULTS.refetchOnMount,
-        refetchOnFocus = CONFIG_DEFAULTS.refetchOnFocus,
-        refetchOnReconnect = CONFIG_DEFAULTS.refetchOnReconnect,
-        refetchIntervalInBackground = CONFIG_DEFAULTS.refetchIntervalInBackground,
+        refetchOnMount = configDefaults.refetchOnMount,
+        refetchOnFocus = configDefaults.refetchOnFocus,
+        refetchOnReconnect = configDefaults.refetchOnReconnect,
+        refetchIntervalInBackground = configDefaults.refetchIntervalInBackground,
         refetchInterval,
         broadcast,
         onSuccess,
         onError,
         onSettled,
-        retry = CONFIG_DEFAULTS.retry,
+        retry = configDefaults.retry,
         retryDelay,
-        maxRetries = CONFIG_DEFAULTS.maxRetries,
+        maxRetries = configDefaults.maxRetries,
         throwOnError,
-        staleTime = CONFIG_DEFAULTS.staleTime,
+        staleTime = configDefaults.staleTime,
         enabled,
-        debug = CONFIG_DEFAULTS.debug,
-        swr = CONFIG_DEFAULTS.swr,
+        debug = configDefaults.debug,
+        swr = configDefaults.swr,
         initialData,
+        delayUnit = configDefaults.delayUnit,
+        maxRetryDelay = configDefaults.maxRetryDelay,
     } = options;
     const wasTriggeredSignal = injectSignal<boolean>(suspense || !lazy);
     const wasTriggered = wasTriggeredSignal.get();
@@ -162,7 +165,7 @@ export const injectQuery = <TData, TError>(
         );
 
         if (doRetry) {
-            const delay = getRetryDelay(queryControlRef.current.failureCount, retryDelay);
+            const delay = getRetryDelay(queryControlRef.current.failureCount, retryDelay, delayUnit, maxRetryDelay);
             queryLog(
                 debug,
                 `Query ${key}: handleFetchError - Scheduling retry in ${delay}ms.`

@@ -13,7 +13,7 @@ export const shouldRetry = <TData, TError>(
     return failureCount < maxRetries;
 };
 
-export const CONFIG_DEFAULTS = {
+export const BASE_CONFIG_DEFAULTS = {
     enabled: true,
     maxRetries: 3,
     staleTime: 0,
@@ -36,8 +36,8 @@ export const CONFIG_DEFAULTS = {
 export const getRetryDelay = <TData, TError>(
     attemptIndex: number,
     retryDelay: QueryAtomOptions<TData, TError>["retryDelay"],
-    delayUnit = CONFIG_DEFAULTS.delayUnit,
-    maxRetryDelay = CONFIG_DEFAULTS.maxRetryDelay
+    delayUnit: number,
+    maxRetryDelay: number
 ): number => {
     if (typeof retryDelay === "function") {
         return retryDelay(attemptIndex);
@@ -49,7 +49,7 @@ export const getRetryDelay = <TData, TError>(
     return Math.min(delayUnit * 2 ** attemptIndex, maxRetryDelay); // Capped at 30s
 };
 
-export const queryLog = (debug: boolean | undefined, ...args: unknown[]) => {
+const queryLog = (debug: boolean | undefined, ...args: unknown[]) => {
     if (debug) {
         console.log(...args);
     }
@@ -59,4 +59,5 @@ queryLog.error = (debug: boolean, ...args: unknown[]) => {
         console.error(...args);
     }
 };
+export { queryLog }
 
