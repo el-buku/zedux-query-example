@@ -14,6 +14,7 @@ export const shouldRetry = <TData, TError>(
 };
 
 export const CONFIG_DEFAULTS = {
+    enabled: true,
     maxRetries: 3,
     staleTime: 0,
     retry: false,
@@ -25,7 +26,7 @@ export const CONFIG_DEFAULTS = {
     ttl: 0,
     maxRetryDelay: 30000,
     debug: true,
-    swr: false,
+    swr: true,
     suspense: false,
     lazy: false,
     broadcast: false,

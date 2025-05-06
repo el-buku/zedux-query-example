@@ -11,11 +11,9 @@ import {
     injectEcosystem,
     injectMappedSignal,
     injectMemo,
-    type ZeduxPromise,
     type MutableRefObject,
     type MappedSignal,
     type PromiseState,
-    type EventMap,
     type Signal,
     type Ecosystem,
     type AnyAtomTemplate,
@@ -24,14 +22,12 @@ import {
     type AnyAtomInstance,
     type AnyAtomGenerics,
     type AtomStateFactory,
+    injectWhy,
 } from "@zedux/react";
 import { onlineManagerAtom } from "../online-manager";
 import { shouldRetry, getRetryDelay, queryLog } from "../_utils";
 
-import {
-    broadcastChannelAtom,
-    type QueryBroadcastMessage,
-} from "../broadcast-channel";
+
 import type {
     QueryFactoryTemplate,
     QueryAtomOptions,
@@ -44,8 +40,8 @@ const attemptRefetch = async <TData>(
     key: string,
     triggerQuery: () => Promise<void> | void,
     hasFetchedOnceRef: MutableRefObject<boolean>,
-    promiseStateSignal: MappedSignal<{ Events: EventMap, State: PromiseState<TData | undefined> }>,
-    promiseMetaSignal: MappedSignal<{ Events: EventMap, State: PromiseMeta }>,
+    promiseStateSignal: MappedSignal<{ Events: Record<string, any>, State: PromiseState<TData | undefined> }>,
+    promiseMetaSignal: MappedSignal<{ Events: Record<string, any>, State: PromiseMeta }>,
     options: Pick<
         QueryAtomOptions<TData>,
         "enabled" | "lazy" | "staleTime" | "debug"
@@ -67,7 +63,7 @@ const attemptRefetch = async <TData>(
 
     const currentState = promiseStateSignal.get();
     const currentMeta = promiseMetaSignal.get();
-    const isStale = !currentMeta.lastUpdated || Date.now() - currentMeta.lastUpdated > staleTime;
+    const isStale = !!currentMeta.lastUpdated && Date.now() - currentMeta.lastUpdated > staleTime;
 
     queryLog(
         debug,
@@ -85,8 +81,8 @@ const attemptRefetch = async <TData>(
 export const injectRefetch = <TData>(
     key: string,
     hasFetchedOnceRef: MutableRefObject<boolean>,
-    promiseStateSignal: MappedSignal<{ Events: EventMap, State: PromiseState<TData | undefined> }>,
-    promiseMetaSignal: MappedSignal<{ Events: EventMap, State: PromiseMeta }>,
+    promiseStateSignal: MappedSignal<{ Events: Record<string, any>, State: PromiseState<TData | undefined> }>,
+    promiseMetaSignal: MappedSignal<{ Events: Record<string, any>, State: PromiseMeta }>,
     triggerQuery: () => void,
     options: Pick<
         QueryAtomOptions<TData>,
@@ -153,6 +149,7 @@ export const injectRefetch = <TData>(
 
         if (isOnline) {
             queryLog(debug, `Query ${key}: Reconnect detected (online).`);
+
             attemptRefetch(
                 'reconnect',
                 key,

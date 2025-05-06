@@ -11,9 +11,11 @@ import {
     injectEcosystem,
     injectMappedSignal,
     injectMemo,
+    type ZeduxPromise,
     type MutableRefObject,
     type MappedSignal,
     type PromiseState,
+    type EventMap,
     type Signal,
     type Ecosystem,
     type AnyAtomTemplate,
@@ -22,6 +24,7 @@ import {
     type AnyAtomInstance,
     type AnyAtomGenerics,
     type AtomStateFactory,
+    injectCallback,
 } from "@zedux/react";
 import { onlineManagerAtom } from "../online-manager";
 import {
@@ -31,6 +34,10 @@ import {
     CONFIG_DEFAULTS,
 } from "../_utils";
 
+import {
+    broadcastChannelAtom,
+    type QueryBroadcastMessage,
+} from "../broadcast-channel";
 import type {
     QueryFactoryTemplate,
     QueryAtomOptions,
@@ -64,8 +71,8 @@ export const injectQuery = <TData, TError>(
         enabled,
         debug = CONFIG_DEFAULTS.debug,
         swr = CONFIG_DEFAULTS.swr,
+        initialData,
     } = options;
-
     const wasTriggeredSignal = injectSignal<boolean>(suspense || !lazy);
     const wasTriggered = wasTriggeredSignal.get();
     const isEnabled = injectMemo(
@@ -89,30 +96,28 @@ export const injectQuery = <TData, TError>(
     const queryStateMachine = injectQueryState();
     const send = queryStateMachine.send;
 
-    const invalidateFn = () => {
+    const invalidateFn = injectCallback(() => {
         const isRetry = isRetryRef.current;
         queryLog(debug, `Query ${key}: Invalidation triggered.`);
-        ecosystem.batch(() => {
-            queryLog(
-                debug,
-                `Query ${key}: Sending 'invalidate' event to state machine.`
-            );
-            send("invalidate");
+        queryLog(
+            debug,
+            `Query ${key}: Sending 'invalidate' event to state machine.`
+        );
+        send("invalidate");
 
-            if (lazy && !isRetry) {
-                wasTriggeredSignal.set(false);
-            }
-            queryLog(
-                debug,
-                `Query ${key}: Invalidate: ${swr ? "preserving data (SWR)" : "clearing dataSignal."}`
-            );
-            if (!swr) {
-                queryApi.dataSignal.set(undefined);
-            }
-            queryLog(debug, `Query ${key}: Calling self.invalidate()`);
-            self.invalidate();
-        });
-    };
+        if (lazy && !isRetry) {
+            wasTriggeredSignal.set(false);
+        }
+        queryLog(
+            debug,
+            `Query ${key}: Invalidate: ${swr ? "preserving data (SWR)" : "clearing dataSignal."}`
+        );
+        if (!swr) {
+            queryApi.dataSignal.set(undefined);
+        }
+        queryLog(debug, `Query ${key}: Calling self.invalidate()`);
+        self.invalidate();
+    }, [self]);
 
     const handleFetchSuccess = async (data: TData) => {
         queryLog(debug, `Query ${key}: handleFetchSuccess - Success. Data:`, data);
@@ -308,8 +313,7 @@ export const injectQuery = <TData, TError>(
             throwOnError,
             ecosystem,
             self,
-            wasTriggered, // Key dependencies for the factory function itself
-            // Adding retry, retryDelay, maxRetries as dependencies for error handling logic
+            wasTriggered,
             retry,
             retryDelay,
             maxRetries,
@@ -319,6 +323,10 @@ export const injectQuery = <TData, TError>(
         ],
         {
             runOnInvalidate: true,
+            initialData:
+                typeof initialData === "function"
+                    ? (initialData as () => TData)()
+                    : initialData,
         }
     );
     // --- Cleanup Logic ---
@@ -351,11 +359,14 @@ export const injectQuery = <TData, TError>(
     injectRefetch(
         key,
         hasFetchedOnceRef,
-        queryApi.signal, // Pass the signal from injectPromise directly
+        queryApi.signal as MappedSignal<{
+            Events: EventMap;
+            State: PromiseState<TData | undefined>;
+        }>,
         promiseMetaSignal,
-        invalidateFn, // Use invalidateFn for triggering refetch
+        invalidateFn,
         {
-            enabled: !!isEnabled, // Ensure boolean conversion
+            enabled: !!isEnabled,
             refetchOnFocus: !!refetchOnFocus,
             refetchOnReconnect: !!refetchOnReconnect,
             refetchIntervalInBackground: !!refetchIntervalInBackground,
@@ -366,29 +377,49 @@ export const injectQuery = <TData, TError>(
         }
     );
 
-    // Derive status signals directly from the state machine's value
-    const isIdleSignal = injectMemo(
-        () => queryStateMachine.getValue() === "idle",
-        [queryStateMachine]
+    const queryStateMachineVal = queryStateMachine.getValue();
+    const isIdleSignal = injectSignal<boolean>(queryStateMachineVal === "idle");
+    const isLoadingSignal = injectSignal<boolean>(
+        queryStateMachineVal === "fetching"
     );
-    const isFetchingSignal = injectMemo(
-        () => queryStateMachine.getValue() === "fetching",
-        [queryStateMachine]
+    const isFetchingSignal = injectSignal<boolean>(
+        queryStateMachineVal === "fetching"
     );
-    const isSuccessSignal = injectMemo(
-        () => queryStateMachine.getValue() === "success",
-        [queryStateMachine]
+    const isSuccessSignal = injectSignal<boolean>(
+        queryStateMachineVal === "success"
     );
-    const isErrorSignal = injectMemo(
-        () => queryStateMachine.getValue() === "error",
-        [queryStateMachine]
-    );
-    const queryStateSignal = injectMemo(
-        () => queryStateMachine.getValue(),
-        [queryStateMachine]
-    ); // Signal for the state string itself
+    const isErrorSignal = injectSignal<boolean>(queryStateMachineVal === "error");
+    const queryStateSignal = injectSignal<
+        "error" | "success" | "idle" | "fetching"
+    >(queryStateMachineVal);
+    injectEffect(() => {
+        let isIdle = false;
+        let isFetching = false;
+        let isSuccess = false;
+        let isError = false;
+        let isLoading = true;
+        const status = queryStateMachineVal;
+        if (status === "idle") {
+            isIdle = true;
+        } else if (status === "fetching") {
+            isFetching = true;
+        } else if (status === "success") {
+            isSuccess = true;
+        } else if (status === "error") {
+            isError = true;
+        }
+        if (queryApi.dataSignal.get() || isError) {
+            isLoading = false;
+        }
+        isIdleSignal.set(isIdle);
+        isFetchingSignal.set(isFetching);
+        isSuccessSignal.set(isSuccess);
+        isErrorSignal.set(isError);
+        queryStateSignal.set(status);
+        isLoadingSignal.set(isLoading);
+    }, [queryStateMachineVal]);
 
-    // No need for injectEffect to sync signals anymore
+    // queryLog(debug, `Query ${key}: queryState:`, queryState);
 
     const querySignal = injectMappedSignal({
         data: queryApi.dataSignal,
@@ -396,14 +427,15 @@ export const injectQuery = <TData, TError>(
         isFetching: isFetchingSignal,
         isSuccess: isSuccessSignal,
         isError: isErrorSignal,
-        status: queryStateSignal, // Use the memoized signal derived from getValue()
+        status: queryStateSignal,
         lastUpdated: lastUpdatedSignal,
+        isLoading: isLoadingSignal,
     });
 
     const baseExports = { invalidate: invalidateFn, fetch, cancel };
     const qapi = api(querySignal).setExports(baseExports);
 
-    if (suspense && !wasTriggered) {
+    if (suspense) {
         // Only set promise for suspense if initially not triggered
         queryLog(debug, `Query ${key}: Setting promise for suspense (initial).`);
         return qapi.setPromise(queryApi.promise);

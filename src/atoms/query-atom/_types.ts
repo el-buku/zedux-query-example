@@ -41,6 +41,8 @@ export interface QueryAtomOptions<TData = unknown, TError = Error> {
     maxRetries?: number;
     /** Optional: If true, will use SWR caching. Defaults to false. */
     swr?: boolean;
+    /** Optional: Initial data to set when the query is first created. Defaults to undefined. */
+    initialData?: TData | (() => TData);
 }
 export type TQueryStatus = "error" | "success" | "idle" | "fetching";
 export interface QueryState<TData = unknown, TError = Error> {

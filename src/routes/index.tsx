@@ -1,13 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { QueryPlayground } from '~/components/QueryPlayground'
 
 export const Route = createFileRoute('/')({
-  component: Home,
+  component: QueryPlayground,
 })
 
-function Home() {
-  return (
-    <div className="p-2">
-      <h3>Welcome Home!!!</h3>
-    </div>
-  )
-}

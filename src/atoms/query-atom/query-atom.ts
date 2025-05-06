@@ -32,8 +32,9 @@ export const createQueryAtom = <
         refetchOnReconnect,
         refetchInterval,
         refetchIntervalInBackground,
+        initialData,
         throwOnError: _throwOnError,
-        enabled: enabledFromOptions,
+        enabled: enabledFromOptions = CONFIG_DEFAULTS.enabled,
         broadcast = CONFIG_DEFAULTS.broadcast,
         lazy = CONFIG_DEFAULTS.lazy,
         suspense = CONFIG_DEFAULTS.suspense, // Default suspense to false
@@ -53,6 +54,9 @@ export const createQueryAtom = <
         const qapi = injectQuery<TData, TError>(key, queryFn, {
             lazy,
             suspense,
+            swr,
+            staleTime,
+            initialData,
             refetchOnMount,
             refetchOnFocus,
             refetchOnReconnect,
@@ -66,11 +70,9 @@ export const createQueryAtom = <
             retryDelay,
             maxRetries,
             throwOnError,
-            staleTime,
             enabled: shouldBeEnabled,
-            debug,
             ttl: ttl ?? CONFIG_DEFAULTS.ttl,
-            swr,
+            debug,
         });
 
         return qapi
