@@ -10,37 +10,23 @@ import {
 import { Suspense, useEffect, useState } from "react";
 import { Button } from "./button";
 import { createQueryAtom } from "~/atoms/query-atom/query-atom";
+import { Route } from "~/routes/index";
+import { doSimpleFetch } from "~/lib/do-fetch";
+import { QueryDisplay } from "./QueryDisplay";
+import { Await } from "@tanstack/react-router";
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-interface QueryDisplayProps {
-  title: string;
-  buttons: React.ReactNode;
-  children: React.ReactNode;
-}
-
-const QueryDisplay: React.FC<QueryDisplayProps> = ({ title, buttons, children }) => {
-  return (
-    <div className="w-[30rem] h-[30rem] flex flex-col">
-      <h2 className="text-xl font-semibold text-white mb-3">{title}</h2>
-      <span className="text-white text-11 font-book block w-full whitespace-break-spaces break-words">
-        {children}
-      </span>
-      <div className="flex gap-4 mt-8">{buttons}</div>
-    </div>
-  );
-};
-
-export const doSimpleFetch = async (id: string) => {
-  await wait(3330);
-  const response = await fetch(
-    `https://jsonplaceholder.typicode.com/posts/${id}`
-  );
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+export const preloadedQueryAtom = createQueryAtom(
+  "preloaded-query",
+  () => () => doSimpleFetch("5"),
+  {
+    lazy: false,
+    ttl: 60 * 1000,
+    staleTime: 60 * 1000,
+    // refetchInterval: 10500,
+    debug: true,
+    suspense: true,
   }
-  return response.json() as Promise<{ title: string }>;
-};
+);
 
 const simpleQueryAtomWithParamsFromReact = createQueryAtom(
   "simple-query",
@@ -51,8 +37,10 @@ const simpleQueryAtomWithParamsFromReact = createQueryAtom(
     lazy: false,
     ttl: 0,
     // refetchInterval: 10500,
-    debug: true,
+    debug: false,
     suspense: true,
+    swr: false,
+    staleTime: 60 * 1000,
   }
 );
 const simpleQueryAtomWithParamsFromReactNoSuspense = createQueryAtom(
@@ -64,8 +52,8 @@ const simpleQueryAtomWithParamsFromReactNoSuspense = createQueryAtom(
     lazy: false,
     ttl: 0,
     // refetchInterval: 10500,
-    debug: true,
-    swr:false,
+    debug: false,
+    swr: false,
     suspense: false,
   }
 );
@@ -79,6 +67,7 @@ const simpleQueryAtomUsingAtomStateFactory = createQueryAtom(
   },
   {
     lazy: false,
+    debug: false,
     ttl: 1000 * 60 * 60 * 24,
   }
 );
@@ -90,7 +79,7 @@ const simpleLazyQueryAtom = createQueryAtom(
     lazy: true,
     suspense: false,
     ttl: 1000 * 60 * 60 * 24,
-    debug: true,
+    debug: false,
   }
 );
 
@@ -101,7 +90,7 @@ const SimpleQuery = () => {
   const [data, expos] = useAtomState(simpleQueryAtomWithParamsFromReact, [
     id.toString(),
   ]);
-  console.log('simpleQuery', data)
+  console.log("simpleQuery", data);
 
   return (
     <QueryDisplay
@@ -205,21 +194,33 @@ const SimpleQueryUsingAtomStateFactory = () => {
   );
 };
 
-// const LoaderData = () => {
-//   const data = Route.useLoaderData();
-//   console.log("loaderData", data);
-//   return (
-//     <div className="w-[30rem] h-[30rem] flex flex-col">
-//       <h2 className="text-xl font-semibold text-white mb-3">
-//         Router Loader Data Query
-//       </h2>
+const LoaderData = () => {
+ const [data, expos] = useAtomState(preloadedQueryAtom)
+  return (
+    <div className="w-[30rem] h-[30rem] flex flex-col">
+      <h2 className="text-xl font-semibold text-white mb-3">
+        Router Loader Data Query
+      </h2>
 
-//       <span className="mt-auto text-white text-11 font-book block w-[10rem]">
-//         {JSON.stringify(data)}
-//       </span>
-//     </div>
-//   );
-// };
+      <span className="mt-auto text-white text-11 font-book block w-[10rem]">
+        {JSON.stringify(data)}
+      </span>
+    </div>
+  );
+};
+
+const LoaderDataAwaiter = () => {
+    const {deferredPromise}  = Route.useLoaderData()
+    if(!deferredPromise){
+        console.log('no deferredPromise')
+        return null
+    }
+    return <Await promise={deferredPromise}>
+        {() => {
+            return <LoaderData />
+        }}
+    </Await>
+};
 
 export const QueryPlayground = () => {
   return (
@@ -234,7 +235,7 @@ export const QueryPlayground = () => {
 
         {/* // TODO: NO-SUSPENSE not working */}
         <Suspense fallback={<div>Loading SimpleQueryNoSuspense...</div>}>
-        <SimpleQueryNoSuspense />
+          <SimpleQueryNoSuspense />
         </Suspense>
         <Suspense fallback={<div>Loading SimpleQueryReusingAtom...</div>}>
           <SimpleQueryReusingAtom />
@@ -248,9 +249,9 @@ export const QueryPlayground = () => {
           <SimpleLazyQuery />
         </Suspense>
 
-        {/* <Suspense fallback={<div>Loading SimpleLazyQuery...</div>}>
-          <LoaderData />
-        </Suspense> */}
+        <Suspense fallback={<div>Loading LoaderDataStreaming...</div>}>
+          <LoaderDataAwaiter />
+        </Suspense>
       </div>
     </div>
   );

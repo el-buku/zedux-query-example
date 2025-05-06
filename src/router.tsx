@@ -2,17 +2,19 @@ import { createRouter as createTanStackRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 import { DefaultCatchBoundary } from './components/DefaultCatchBoundary'
 import { NotFound } from './components/NotFound'
+import { rootEcosystem } from './atoms/ecosystem'
 
 export function createRouter() {
-  const router = createTanStackRouter({
+
+  return createTanStackRouter({
     routeTree,
-    defaultPreload: 'intent',
+    context: { rootEcosystem },
+    defaultPreload: "intent",
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: () => <NotFound />,
-    scrollRestoration: true,
+    defaultPendingMinMs: 0,
+    defaultPendingMs: 0,
   })
-
-  return router
 }
 
 declare module '@tanstack/react-router' {

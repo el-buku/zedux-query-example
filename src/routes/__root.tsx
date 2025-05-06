@@ -4,14 +4,19 @@ import {
   Outlet,
   Scripts,
   createRootRoute,
+  createRootRouteWithContext,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import * as React from "react";
+import { rootEcosystem } from "~/atoms/ecosystem";
 import { DefaultCatchBoundary } from "~/components/DefaultCatchBoundary";
 import { NotFound } from "~/components/NotFound";
 import appCss from "~/styles/app.css?url";
 
-export const Route = createRootRoute({
+export type TRootRouteContext = {
+  rootEcosystem: typeof rootEcosystem;
+}
+export const Route = createRootRouteWithContext<TRootRouteContext>()({
   head: () => ({
     meta: [
       {
