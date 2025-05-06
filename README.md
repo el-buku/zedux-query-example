@@ -90,3 +90,7 @@ This directory contains a custom query implementation built using Zedux V2 atoms
 - Full Mutation Implementation (`createMutationAtom`)
 - Infinite Queries (`createInfiniteQueryAtom`)
 - Selectors (`select` option)
+
+## Fixes:
+
+- Route loader streaming example fetches the data on the server and sends it back to the client. it is available if the promise returns data and the component renders it. however, when trying to actually rehydrate the atom from the streamed data, the atom is reconstructed rather than rehydrated. need to fix this
