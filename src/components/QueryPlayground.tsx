@@ -9,13 +9,13 @@ import {
 } from "@zedux/react";
 import { Suspense, useEffect, useState } from "react";
 import { Button } from "./button";
-import { createQueryAtom } from "~/atoms/query-atom/query-atom";
+import { queryAtom } from "~/atoms/query-atom/query-atom";
 import { Route } from "~/routes/index";
 import { doSimpleFetch } from "~/lib/do-fetch";
 import { QueryDisplay } from "./QueryDisplay";
 import { Await } from "@tanstack/react-router";
 
-export const preloadedQueryAtom = createQueryAtom(
+export const preloadedQueryAtom = queryAtom(
   "preloaded-query",
   () => () => doSimpleFetch("5"),
   {
@@ -28,7 +28,7 @@ export const preloadedQueryAtom = createQueryAtom(
   }
 );
 
-const simpleQueryAtomWithParamsFromReact = createQueryAtom(
+const simpleQueryAtomWithParamsFromReact = queryAtom(
   "simple-query",
   (id: string) => {
     return () => doSimpleFetch(id);
@@ -43,7 +43,7 @@ const simpleQueryAtomWithParamsFromReact = createQueryAtom(
     staleTime: 60 * 1000,
   }
 );
-const simpleQueryAtomWithParamsFromReactNoSuspense = createQueryAtom(
+const simpleQueryAtomWithParamsFromReactNoSuspense = queryAtom(
   "simple-query-no-suspense",
   (id: string) => {
     return () => doSimpleFetch(id);
@@ -58,7 +58,7 @@ const simpleQueryAtomWithParamsFromReactNoSuspense = createQueryAtom(
   }
 );
 
-const simpleQueryAtomUsingAtomStateFactory = createQueryAtom(
+const simpleQueryAtomUsingAtomStateFactory = queryAtom(
   "simple-query-using-atom-state-factory",
   () => {
     const id = injectAtomValue(postIdAtom);
@@ -72,7 +72,7 @@ const simpleQueryAtomUsingAtomStateFactory = createQueryAtom(
   }
 );
 
-const simpleLazyQueryAtom = createQueryAtom(
+const simpleLazyQueryAtom = queryAtom(
   "simple-lazy-query",
   () => () => doSimpleFetch("1"),
   {

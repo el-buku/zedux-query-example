@@ -9,7 +9,7 @@ import { injectQuery } from "./injectors/inject-query";
 import { CONFIG_DEFAULTS } from "./_utils";
 
 
-export const createQueryAtom = <
+export const queryAtom = <
     TData = unknown,
     TError = Error,
     TQueryKey extends string = string,
