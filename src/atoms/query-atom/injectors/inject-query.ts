@@ -11,11 +11,9 @@ import {
     injectEcosystem,
     injectMappedSignal,
     injectMemo,
-    type ZeduxPromise,
     type MutableRefObject,
     type MappedSignal,
     type PromiseState,
-    type EventMap,
     type Signal,
     type Ecosystem,
     type AnyAtomTemplate,
@@ -34,10 +32,6 @@ import {
     CONFIG_DEFAULTS,
 } from "../_utils";
 
-import {
-    broadcastChannelAtom,
-    type QueryBroadcastMessage,
-} from "../broadcast-channel";
 import type {
     QueryFactoryTemplate,
     QueryAtomOptions,
@@ -133,7 +127,7 @@ export const injectQuery = <TData, TError>(
         send("fetchSuccessful");
         lastUpdatedSignal.set(Date.now());
         const onSuccessReturn = onSuccess ? await onSuccess(data) : data;
-        const onSuccessResult = onSuccessReturn ?? data;
+        const onSuccessResult = onSuccessReturn ? onSuccessReturn : data;
         if (onSettled) {
             onSettled(onSuccessResult, undefined);
         }
@@ -190,7 +184,7 @@ export const injectQuery = <TData, TError>(
         );
         send("fetchFailed");
         const onErrorReturn = onError ? await onError(error) : error;
-        const onErrorResult = onErrorReturn ?? error;
+        const onErrorResult = onErrorReturn ? onErrorReturn : error;
         if (onSettled) {
             onSettled(undefined, onErrorResult);
         }
@@ -360,7 +354,7 @@ export const injectQuery = <TData, TError>(
         key,
         hasFetchedOnceRef,
         queryApi.signal as MappedSignal<{
-            Events: EventMap;
+            Events: Record<string, any>;
             State: PromiseState<TData | undefined>;
         }>,
         promiseMetaSignal,
