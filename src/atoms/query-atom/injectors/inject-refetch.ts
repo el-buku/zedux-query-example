@@ -32,6 +32,7 @@ import type {
     QueryFactoryTemplate,
     QueryAtomOptions,
     PromiseMeta,
+    TQueryControl,
 } from "../_types";
 
 // Helper function to check conditions and trigger query
@@ -39,7 +40,7 @@ const attemptRefetch = async <TData>(
     reason: string,
     key: string,
     triggerQuery: () => Promise<void> | void,
-    hasFetchedOnceRef: MutableRefObject<boolean>,
+    hasFetchedOnce: boolean,
     promiseStateSignal: MappedSignal<{ Events: Record<string, any>, State: PromiseState<TData | undefined> }>,
     promiseMetaSignal: MappedSignal<{ Events: Record<string, any>, State: PromiseMeta }>,
     options: Pick<
@@ -56,7 +57,7 @@ const attemptRefetch = async <TData>(
         return;
     }
 
-    if (lazy && !hasFetchedOnceRef.current) {
+    if (lazy && !hasFetchedOnce) {
         queryLog(debug, `Query ${key}: attemptRefetch (${reason}) - Skipped (lazy and never fetched).`);
         return;
     }
@@ -80,7 +81,7 @@ const attemptRefetch = async <TData>(
 
 export const injectRefetch = <TData>(
     key: string,
-    hasFetchedOnceRef: MutableRefObject<boolean>,
+    queryControlRef: MutableRefObject<TQueryControl<TData>>,
     promiseStateSignal: MappedSignal<{ Events: Record<string, any>, State: PromiseState<TData | undefined> }>,
     promiseMetaSignal: MappedSignal<{ Events: Record<string, any>, State: PromiseMeta }>,
     triggerQuery: () => void,
@@ -120,7 +121,7 @@ export const injectRefetch = <TData>(
             'focus',
             key,
             triggerQuery,
-            hasFetchedOnceRef,
+            queryControlRef.current.hasFetchedOnce,
             promiseStateSignal,
             promiseMetaSignal,
             commonOptions
@@ -154,7 +155,7 @@ export const injectRefetch = <TData>(
                 'reconnect',
                 key,
                 triggerQuery,
-                hasFetchedOnceRef,
+                queryControlRef.current.hasFetchedOnce,
                 promiseStateSignal,
                 promiseMetaSignal,
                 commonOptions
@@ -181,7 +182,7 @@ export const injectRefetch = <TData>(
             }
 
             // Interval refetch ignores staleness, just checks enabled and loading status
-            if (lazy && !hasFetchedOnceRef.current) {
+            if (lazy && !queryControlRef.current.hasFetchedOnce) {
                 queryLog(debug, `Query ${key}: Interval - Skipping (lazy and never fetched).`);
                 return;
             }

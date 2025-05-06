@@ -78,3 +78,12 @@ export type QueryFactoryTemplate<
         Signal: undefined;
     }>,
 > = AtomStateFactory<G>;
+
+export type TQueryControl<TData> = {
+    controller: AbortController | undefined;
+    hasFetchedOnce: boolean;
+    isRetry: boolean;
+    retryTimeoutId: NodeJS.Timeout | null;
+    failureCount: number;
+    activeFetchPromise: Promise<TData | undefined> | null;
+}

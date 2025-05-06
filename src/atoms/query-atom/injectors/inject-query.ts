@@ -36,6 +36,7 @@ import type {
     QueryFactoryTemplate,
     QueryAtomOptions,
     PromiseMeta,
+    TQueryControl,
 } from "../_types";
 import { injectRefetch } from "./inject-refetch";
 import { injectQueryState } from "./inject-query-state"; // Import state machine injector
@@ -73,14 +74,16 @@ export const injectQuery = <TData, TError>(
         () => wasTriggered || enabled,
         [wasTriggered, enabled]
     );
-    const controllerRef = injectRef<AbortController | undefined>(undefined);
-    const hasFetchedOnceRef = injectRef(false);
-    const isRetryRef = injectRef(false);
-    const retryTimeoutIdRef = injectRef<NodeJS.Timeout | null>(null);
-    const failureCountRef = injectRef(0);
-    const activeFetchPromiseRef = injectRef<Promise<TData | undefined> | null>(
-        null
-    );
+
+    const queryControlRef = injectRef<TQueryControl<TData>>({
+        controller: undefined,
+        hasFetchedOnce: false,
+        isRetry: false,
+        retryTimeoutId: null,
+        failureCount: 0,
+        activeFetchPromise: null,
+    });
+
     const ecosystem = injectEcosystem();
     const self = injectSelf();
     const lastUpdatedSignal = injectSignal<number | null>(null);
@@ -91,7 +94,7 @@ export const injectQuery = <TData, TError>(
     const send = queryStateMachine.send;
 
     const invalidateFn = injectCallback(() => {
-        const isRetry = isRetryRef.current;
+        const isRetry = queryControlRef.current.isRetry;
         queryLog(debug, `Query ${key}: Invalidation triggered.`);
         queryLog(
             debug,
@@ -115,10 +118,10 @@ export const injectQuery = <TData, TError>(
 
     const handleFetchSuccess = async (data: TData) => {
         queryLog(debug, `Query ${key}: handleFetchSuccess - Success. Data:`, data);
-        failureCountRef.current = 0;
-        if (retryTimeoutIdRef.current) {
-            clearTimeout(retryTimeoutIdRef.current);
-            retryTimeoutIdRef.current = null;
+        queryControlRef.current.failureCount = 0;
+        if (queryControlRef.current.retryTimeoutId) {
+            clearTimeout(queryControlRef.current.retryTimeoutId);
+            queryControlRef.current.retryTimeoutId = null;
             queryLog(
                 debug,
                 `Query ${key}: handleFetchSuccess - Cleared pending retry timeout.`
@@ -141,14 +144,14 @@ export const injectQuery = <TData, TError>(
 
     const handleFetchError = async (error: TError) => {
         queryLog(debug, `Query ${key}: handleFetchError - Error:`, error);
-        failureCountRef.current++;
+        queryControlRef.current.failureCount++;
         queryLog(
             debug,
-            `Query ${key}: handleFetchError - Failure count: ${failureCountRef.current}`
+            `Query ${key}: handleFetchError - Failure count: ${queryControlRef.current.failureCount}`
         );
 
         const doRetry = shouldRetry(
-            failureCountRef.current,
+            queryControlRef.current.failureCount,
             error,
             retry,
             maxRetries
@@ -159,7 +162,7 @@ export const injectQuery = <TData, TError>(
         );
 
         if (doRetry) {
-            const delay = getRetryDelay(failureCountRef.current, retryDelay);
+            const delay = getRetryDelay(queryControlRef.current.failureCount, retryDelay);
             queryLog(
                 debug,
                 `Query ${key}: handleFetchError - Scheduling retry in ${delay}ms.`
@@ -167,12 +170,12 @@ export const injectQuery = <TData, TError>(
             send("retry");
 
             return new Promise<TData | undefined>((resolve) => {
-                retryTimeoutIdRef.current = setTimeout(() => {
+                queryControlRef.current.retryTimeoutId = setTimeout(() => {
                     queryLog(
                         debug,
                         `Query ${key}: handleFetchError - Retry timeout finished. Invalidating.`
                     );
-                    isRetryRef.current = true;
+                    queryControlRef.current.isRetry = true;
                     invalidateFn();
                     resolve(undefined); // Resolve the placeholder promise
                 }, delay);
@@ -220,9 +223,9 @@ export const injectQuery = <TData, TError>(
                 return Promise.resolve(undefined);
             }
 
-            const isRetry = isRetryRef.current;
-            controllerRef.current = controller;
-            isRetryRef.current = false; // Reset after capturing
+            const isRetry = queryControlRef.current.isRetry;
+            queryControlRef.current.controller = controller;
+            queryControlRef.current.isRetry = false; // Reset after capturing
 
             if (!isRetry) {
                 queryLog(
@@ -232,21 +235,21 @@ export const injectQuery = <TData, TError>(
                 send("request");
             }
 
-            if (!isRetry && retryTimeoutIdRef.current) {
+            if (!isRetry && queryControlRef.current.retryTimeoutId) {
                 queryLog(
                     debug,
                     `Query ${key}: queryFactory - Clearing pending retry timeout.`
                 );
-                clearTimeout(retryTimeoutIdRef.current);
-                retryTimeoutIdRef.current = null;
+                clearTimeout(queryControlRef.current.retryTimeoutId);
+                queryControlRef.current.retryTimeoutId = null;
             }
 
-            if (!hasFetchedOnceRef.current) {
+            if (!queryControlRef.current.hasFetchedOnce) {
                 queryLog(
                     debug,
                     `Query ${key}: queryFactory - Marking first fetch attempt.`
                 );
-                hasFetchedOnceRef.current = true;
+                queryControlRef.current.hasFetchedOnce = true;
             }
 
             if (!isRetry) {
@@ -254,10 +257,10 @@ export const injectQuery = <TData, TError>(
                     debug,
                     `Query ${key}: queryFactory - Resetting failure count.`
                 );
-                failureCountRef.current = 0;
+                queryControlRef.current.failureCount = 0;
             }
 
-            const currentFetchPromise = activeFetchPromiseRef.current;
+            const currentFetchPromise = queryControlRef.current.activeFetchPromise;
             if (currentFetchPromise) {
                 queryLog(
                     debug,
@@ -280,7 +283,7 @@ export const injectQuery = <TData, TError>(
                         debug,
                         `Query ${key}: queryFactory - Clearing active fetch promise ref.`
                     );
-                    activeFetchPromiseRef.current = null;
+                    queryControlRef.current.activeFetchPromise = null;
                 }
             })();
 
@@ -288,7 +291,7 @@ export const injectQuery = <TData, TError>(
                 debug,
                 `Query ${key}: queryFactory - Storing new active fetch promise.`
             );
-            activeFetchPromiseRef.current = fetchPromise;
+            queryControlRef.current.activeFetchPromise = fetchPromise;
             return fetchPromise;
         },
         [
@@ -329,9 +332,9 @@ export const injectQuery = <TData, TError>(
         // Clear retry timeout on atom destruction
         return () => {
             queryLog(debug, `Query ${key}: Cleanup effect (retry timeout) running.`);
-            if (retryTimeoutIdRef.current) {
+            if (queryControlRef.current.retryTimeoutId) {
                 queryLog(debug, `Query ${key}: Clearing retry timeout on cleanup.`);
-                clearTimeout(retryTimeoutIdRef.current);
+                clearTimeout(queryControlRef.current.retryTimeoutId);
             }
             wasTriggeredSignal.set(false);
         };
@@ -346,13 +349,13 @@ export const injectQuery = <TData, TError>(
     };
 
     const cancel = () => {
-        if (controllerRef.current) {
-            controllerRef.current.abort();
+        if (queryControlRef.current.controller) {
+            queryControlRef.current.controller.abort();
         }
     };
     injectRefetch(
         key,
-        hasFetchedOnceRef,
+        queryControlRef,
         queryApi.signal as MappedSignal<{
             Events: Record<string, any>;
             State: PromiseState<TData | undefined>;
