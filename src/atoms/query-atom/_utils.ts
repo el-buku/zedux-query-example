@@ -25,7 +25,7 @@ export const BASE_CONFIG_DEFAULTS = {
     refetchIntervalInBackground: false,
     ttl: 0,
     maxRetryDelay: 30000,
-    debug: true,
+    debug: false,
     swr: true,
     suspense: false,
     lazy: false,

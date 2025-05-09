@@ -417,7 +417,9 @@ export const injectQuery = <TData, TError>(
         isErrorSignal.set(isError);
         queryStateSignal.set(status);
         isLoadingSignal.set(isLoading);
-    }, [queryStateMachineVal]);
+    }, [queryStateMachineVal], {
+        synchronous: true
+    });
 
     // queryLog(debug, `Query ${key}: queryState:`, queryState);
 

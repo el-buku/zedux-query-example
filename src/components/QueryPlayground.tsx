@@ -7,7 +7,7 @@ import {
   useAtomState,
   useAtomValue,
 } from "@zedux/react";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useId, useState } from "react";
 import { Button } from "./button";
 import { queryAtom } from "~/atoms/query-atom/query-atom";
 import { Route } from "~/routes/index";
@@ -209,22 +209,24 @@ const LoaderData = () => {
   );
 };
 
-const LoaderDataAwaiter = () => {
-    const {deferredPromise}  = Route.useLoaderData()
-    if(!deferredPromise){
-        console.log('no deferredPromise')
-        return null
-    }
-    return <Await promise={deferredPromise}>
-        {() => {
-            return <LoaderData />
-        }}
-    </Await>
-};
+// const LoaderDataAwaiter = () => {
+//     const {deferredPromise}  = Route.useLoaderData()
+//     if(!deferredPromise){
+//         console.log('no deferredPromise')
+//         return null
+//     }
+//     return <Await promise={deferredPromise}>
+//         {() => {
+//             return <LoaderData />
+//         }}
+//     </Await>
+// };
 
 export const QueryPlayground = () => {
+  const id = useId()
+  console.log("ID", id)
   return (
-    <div className="flex flex-col flex-wrap h-screen w-full gap-4 mt-8">
+    <div className="flex flex-col flex-wrap h-screen w-full gap-4 mt-8" id={id}>
       <h1 className="text-2xl font-semibold text-white mb-6">
         Query Playground
       </h1>
@@ -233,7 +235,7 @@ export const QueryPlayground = () => {
           <SimpleQuery />
         </Suspense>
 
-        {/* // TODO: NO-SUSPENSE not working */}
+        {/* // TODO: NO-SUSPENSE not working
         <Suspense fallback={<div>Loading SimpleQueryNoSuspense...</div>}>
           <SimpleQueryNoSuspense />
         </Suspense>
@@ -251,7 +253,7 @@ export const QueryPlayground = () => {
 
         <Suspense fallback={<div>Loading LoaderDataStreaming...</div>}>
           <LoaderDataAwaiter />
-        </Suspense>
+        </Suspense> */}
       </div>
     </div>
   );

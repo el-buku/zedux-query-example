@@ -16,8 +16,8 @@
     "@zedux/machines": "2.0.0-rc.9",
     "@zedux/react": "2.0.0-rc.9",
     "isbot": "^5.1.27",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "19.2.0-canary-38ef6550-20250508",
+    "react-dom": "19.2.0-canary-38ef6550-20250508",
     "tailwind-merge": "^2.6.0",
     "vinxi": "0.5.3"
   },

@@ -7,7 +7,9 @@ import {
   createRootRouteWithContext,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { EcosystemProvider } from "@zedux/react";
 import * as React from "react";
+import { useMemo } from "react";
 import { rootEcosystem } from "~/atoms/ecosystem";
 import { DefaultCatchBoundary } from "~/components/DefaultCatchBoundary";
 import { NotFound } from "~/components/NotFound";
@@ -15,7 +17,7 @@ import appCss from "~/styles/app.css?url";
 
 export type TRootRouteContext = {
   rootEcosystem: typeof rootEcosystem;
-}
+};
 export const Route = createRootRouteWithContext<TRootRouteContext>()({
   head: () => ({
     meta: [
@@ -60,13 +62,43 @@ export const Route = createRootRouteWithContext<TRootRouteContext>()({
   },
   notFoundComponent: () => <NotFound />,
   component: RootComponent,
+  loader: (ctx) => {
+    const snapshot = ctx.context.rootEcosystem.dehydrate({
+      exclude: ["unserializable"],
+      excludeTags: ["unserializable"],
+    });
+    rootEcosystem.reset();
+    console.log("start loader promise");
+    return {
+      snapshot,
+    };
+  },
+  // beforeLoad: async (ctx) => {
+  //   console.log("beforeLoad", ctx);
+  // },
 });
 
 function RootComponent() {
+  const loaded = Route.useLoaderData();
+  console.log("loaded", loaded);
+  const ecosystem = useMemo(() => {
+    console.log("loadedInMemo", loaded);
+    const newEcosystem = rootEcosystem;
+    newEcosystem.hydrate(loaded.snapshot);
+    console.log("newEcosystem", newEcosystem);
+    // NOTE: atoms can be preloaded here via `newEcosystem.getNode(myAtom)`
+
+    return newEcosystem;
+  }, []);
+  if (!loaded) {
+    return <div>Loading...</div>;
+  }
   return (
-    <RootDocument>
-      <Outlet />
-    </RootDocument>
+    <EcosystemProvider ecosystem={ecosystem}>
+      <RootDocument>
+        <Outlet />
+      </RootDocument>
+    </EcosystemProvider>
   );
 }
 

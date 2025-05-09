@@ -1,6 +1,6 @@
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export const doSimpleFetch = async (id: string) => {
-    await wait(3330);
+    await wait(13330);
     const response = await fetch(
         `https://jsonplaceholder.typicode.com/posts/${id}`
     );

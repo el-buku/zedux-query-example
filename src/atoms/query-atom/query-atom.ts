@@ -2,6 +2,7 @@ import {
     atom,
     api,
     injectAtomValue,
+    getDefaultEcosystem,
 } from "@zedux/react";
 
 import type { QueryFactoryTemplate, QueryAtomOptions } from "./_types";
@@ -20,7 +21,9 @@ export const queryAtom = <
     queryTemplate: QueryFactoryTemplate<TData, TParams>,
     options?: QueryAtomOptions<TData, TError>
 ) => {
-    const configDefaults = rootEcosystem.getOnce(queryConfigAtom)
+    const eco = rootEcosystem
+    console.log("eco", eco.dehydrate());
+    const configDefaults = eco.getOnce(queryConfigAtom)
     const ttl = options?.ttl || configDefaults.ttl
     const factory = (...params: TParams) => {
         const {
@@ -44,6 +47,7 @@ export const queryAtom = <
             debug = configDefaults.debug,
             swr = configDefaults.swr,
         } = options || {};
+        console.log("rootEcosysteezm", rootEcosystem.dehydrate());
         // If suspense is enabled, enabled must also be true, and errors should throw by default
         const throwOnError = suspense ? true : (_throwOnError ?? false);
         const maxRetries = typeof retry === "number" ? retry : retry === true ? configDefaults.maxRetries : 0; // Default retries
