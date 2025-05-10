@@ -29,18 +29,6 @@ export const doSimpleFetch = async (id: string) => {
   return response.json() as Promise<{ title: string }>;
 };
 
-export const preloadedQueryAtom = queryAtom(
-  "preloaded-query",
-  () => queryExecutor(doSimpleFetch, ["5"]),
-  {
-    lazy: false,
-    ttl: 60 * 1000,
-    staleTime: 60 * 1000,
-    // refetchInterval: 10500,
-    debug: true,
-    suspense: true,
-  }
-);
 
 const simpleQueryAtomWithParamsFromReact = queryAtom(
   "simple-query",
@@ -352,7 +340,7 @@ const SimpleQueryWithPaginationAndMerging = () => {
           <Button onClick={() => expos.fetch()}>Fetch Next Page</Button>
           <Button onClick={() => expos.invalidate()}>Invalidate</Button>
           <Button onClick={() => setId(id + 1)}>Next Page (id++)</Button>
-          <Button onClick={() => setId(0)}>Reset Page to 0</Button>
+          {/* <Button onClick={() => setId(0)}>Reset Page to 0</Button> */}
         </>
       }
     >
@@ -361,20 +349,6 @@ const SimpleQueryWithPaginationAndMerging = () => {
   );
 };
 
-const LoaderData = () => {
-  const [data, expos] = useAtomState(preloadedQueryAtom);
-  return (
-    <div className="w-[30rem] h-[30rem] flex flex-col">
-      <h2 className="text-xl font-semibold text-white mb-3">
-        Router Loader Data Query
-      </h2>
-
-      <span className="mt-auto text-white text-11 font-book block w-[10rem]">
-        {JSON.stringify(data)}
-      </span>
-    </div>
-  );
-};
 
 export const QueryPlayground = () => {
   const [seconds, setSeconds] = useState(0);
@@ -384,48 +358,45 @@ export const QueryPlayground = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
-
   return (
-    <div className="flex flex-col flex-wrap h-screen w-full gap-4 mt-8">
-      <h1 className="text-2xl font-semibold text-white mb-6">
+    <div className="flex flex-col h-screen w-full mt-8">
+      <h1 className="text-2xl font-semibold text-white mb-4 px-4 md:px-8 pt-4 flex-shrink-0">
         Query Playground - {seconds} seconds passed
       </h1>
-      <div className="grid grid-cols-3 gap-7 justify-between w-full">
-        <Suspense fallback={<div>Loading SimpleQuery...</div>}>
-          <SimpleQuery />
-        </Suspense>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(30rem,1fr))] grid-auto-rows-[30rem] gap-7 w-full p-8">
+          <Suspense fallback={<div>Loading SimpleQuery...</div>}>
+            <SimpleQuery />
+          </Suspense>
 
-        <Suspense fallback={<div>Loading SimpleQueryNoSuspense...</div>}>
-          <SimpleQueryNoSuspense />
-        </Suspense>
-        <Suspense fallback={<div>Loading SimpleQueryReusingAtom...</div>}>
-          <SimpleQueryReusingAtom />
-        </Suspense>
-        <Suspense
-          fallback={<div>Loading SimpleQueryUsingAtomStateFactory...</div>}
-        >
-          <SimpleQueryUsingAtomStateFactory />
-        </Suspense>
-        <Suspense fallback={<div>Loading SimpleLazyQuery...</div>}>
-          <SimpleLazyQuery />
-        </Suspense>
+          <Suspense fallback={<div>Loading SimpleQueryNoSuspense...</div>}>
+            <SimpleQueryNoSuspense />
+          </Suspense>
+          <Suspense fallback={<div>Loading SimpleQueryReusingAtom...</div>}>
+            <SimpleQueryReusingAtom />
+          </Suspense>
+          <Suspense
+            fallback={<div>Loading SimpleQueryUsingAtomStateFactory...</div>}
+          >
+            <SimpleQueryUsingAtomStateFactory />
+          </Suspense>
+          <Suspense fallback={<div>Loading SimpleLazyQuery...</div>}>
+            <SimpleLazyQuery />
+          </Suspense>
 
-        <Suspense fallback={<div>Loading LoaderData...</div>}>
-          <LoaderData />
-        </Suspense>
-
-        <Suspense
-          fallback={<div>Loading SimpleQueryWithCombinedParams...</div>}
-        >
-          <SimpleQueryWithCombinedParams />
-        </Suspense>
-        <Suspense fallback={<div>Loading SimpleQueryWithLifecycleHooks...</div>}>
-          <SimpleQueryWithLifecycleHooks />
-        </Suspense>
-        <Suspense fallback={<div>Loading SimpleQueryWithPaginationAndMerging...</div>}>
-          <SimpleQueryWithPaginationAndMerging />
-        </Suspense>
-      </div>
+          <Suspense
+            fallback={<div>Loading SimpleQueryWithCombinedParams...</div>}
+          >
+            <SimpleQueryWithCombinedParams />
+          </Suspense>
+          <Suspense fallback={<div>Loading SimpleQueryWithLifecycleHooks...</div>}>
+            <SimpleQueryWithLifecycleHooks />
+          </Suspense>
+          <Suspense fallback={<div>Loading SimpleQueryWithPaginationAndMerging...</div>}>
+            <SimpleQueryWithPaginationAndMerging />
+          </Suspense>
+        </div>
+      {/* <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-4">
+      </div> */}
     </div>
   );
 };
