@@ -187,7 +187,6 @@ export const injectQuery = <
             debug,
             `Query ${key}: handleFetchSuccess - Called onSuccess/onSettled. Updated cross-param cache.`
         );
-        console.log("mergedResult", mergedResult);
         return mergedResult;
     };
 
@@ -334,7 +333,6 @@ export const injectQuery = <
                     const data = await queryFn();
 
                     const mutatedData = await handleFetchSuccess(data, merge);
-                    console.log("mutatedData", mutatedData);
                     return mutatedData;
                 } catch (error) {
                     const typedError = error as TError;
