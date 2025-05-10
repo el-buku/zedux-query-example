@@ -72,9 +72,6 @@ export const Route = createRootRouteWithContext<TRootRouteContext>()({
       snapshot,
     };
   },
-  // beforeLoad: async (ctx) => {
-  //   console.log("beforeLoad", ctx);
-  // },
 });
 
 function RootComponent() {

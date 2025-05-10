@@ -12,9 +12,9 @@ import {
     injectMappedSignal,
     injectMemo,
     type MutableRefObject,
+    type AtomTemplateRecursive,
     type MappedSignal,
     type PromiseState,
-    type Signal,
     type Ecosystem,
     type AnyAtomTemplate,
     type AtomGenerics,
@@ -23,30 +23,37 @@ import {
     type AnyAtomGenerics,
     type AtomStateFactory,
     injectCallback,
+    injectAtomState,
 } from "@zedux/react";
 import { onlineManagerAtom } from "../online-manager";
-import {
-    shouldRetry,
-    getRetryDelay,
-    queryLog,
-} from "../_utils";
+import { shouldRetry, getRetryDelay, queryLog } from "../_utils";
+import { crossParamCacheAtom, } from '../query-cache'; // really want to get rid of this
 
 import type {
     QueryFactoryTemplate,
     QueryAtomOptions,
     PromiseMeta,
     TQueryControl,
+    TQueryDef,
+    QueryAtomLifecycleOptions,
+    CachedQueryEntry,
 } from "../_types";
 import { injectRefetch } from "./inject-refetch";
-import { injectQueryState } from "./inject-query-state"; // Import state machine injector
+import { injectQueryState } from "./inject-query-state";
 import { queryConfigAtom } from "../config-atom";
+import { injectQueryLifecycle } from "./inject-query-lifecycle";
 
-export const injectQuery = <TData, TError>(
+export const injectQuery = <
+    TData,
+    TError,
+    TCombinedParams extends unknown[]  // Combined parameters from TQueryDef
+>(
     key: string,
-    queryFn: () => Promise<TData>,
-    options: QueryAtomOptions<TData, TError>
+    queryKey: string,
+    queryDef: TQueryDef<TData, TCombinedParams>,
+    options: QueryAtomOptions<TData, TError, TCombinedParams> // Options are now generic over TCombinedParams
 ) => {
-    const configDefaults = injectAtomValue(queryConfigAtom)
+    const configDefaults = injectAtomValue(queryConfigAtom);
     const {
         lazy,
         suspense,
@@ -59,6 +66,9 @@ export const injectQuery = <TData, TError>(
         onSuccess,
         onError,
         onSettled,
+        onQueryStarted,
+        onCacheEntryAdded,
+        merge,
         retry = configDefaults.retry,
         retryDelay,
         maxRetries = configDefaults.maxRetries,
@@ -70,8 +80,12 @@ export const injectQuery = <TData, TError>(
         initialData,
         delayUnit = configDefaults.delayUnit,
         maxRetryDelay = configDefaults.maxRetryDelay,
+        ttl
     } = options;
+    const queryFn = queryDef.queryFn;
     const wasTriggeredSignal = injectSignal<boolean>(suspense || !lazy);
+    const wasFetchStartedSignal = injectSignal<boolean>(false);
+    const errorSignal = injectSignal<TError | undefined>(undefined);
     const wasTriggered = wasTriggeredSignal.get();
     const isEnabled = injectMemo(
         () => wasTriggered || enabled,
@@ -95,6 +109,7 @@ export const injectQuery = <TData, TError>(
     });
     const queryStateMachine = injectQueryState();
     const send = queryStateMachine.send;
+    const currentCrossParamCacheInstance = injectAtomInstance(crossParamCacheAtom, [key, ttl])
 
     const invalidateFn = injectCallback(() => {
         const isRetry = queryControlRef.current.isRetry;
@@ -115,11 +130,15 @@ export const injectQuery = <TData, TError>(
         if (!swr) {
             queryApi.dataSignal.set(undefined);
         }
+        currentCrossParamCacheInstance.exports.setCache(queryKey, null);
         queryLog(debug, `Query ${key}: Calling self.invalidate()`);
         self.invalidate();
     }, [self]);
 
-    const handleFetchSuccess = async (data: TData) => {
+    const handleFetchSuccess = async (
+        data: TData,
+        mergeCallback: QueryAtomOptions<TData, TError, TCombinedParams>["merge"]
+    ) => {
         queryLog(debug, `Query ${key}: handleFetchSuccess - Success. Data:`, data);
         queryControlRef.current.failureCount = 0;
         if (queryControlRef.current.retryTimeoutId) {
@@ -131,18 +150,45 @@ export const injectQuery = <TData, TError>(
             );
         }
         send("fetchSuccessful");
-        lastUpdatedSignal.set(Date.now());
+        const fulfilledTimestamp = Date.now();
+        lastUpdatedSignal.set(fulfilledTimestamp);
         const onSuccessReturn = onSuccess ? await onSuccess(data) : data;
-        const onSuccessResult = onSuccessReturn ? onSuccessReturn : data;
+
+        const onSuccessResult = onSuccessReturn !== undefined ? onSuccessReturn : data;
+
+        // get latest cache entry for this serialized queryKey
+        const crossParamPrevDataEntry = currentCrossParamCacheInstance.exports.getCache(queryKey)
+
+        const mergedResult = mergeCallback
+            ? mergeCallback(
+                crossParamPrevDataEntry as CachedQueryEntry<TData, TCombinedParams>, // type casting cause im not sure how to specify generics on injectAtomInstance
+                onSuccessResult,
+                {
+                    params: queryDef.params, // Current params for this fetch
+                    fulfilledTimestamp,
+                }
+            )
+            : onSuccessResult;
+
+        // Update the cache cache
+        const newCacheEntry: CachedQueryEntry<TData, TCombinedParams> = {
+            data: mergedResult,
+            params: queryDef.params,
+            timestamp: fulfilledTimestamp,
+        };
+
+        currentCrossParamCacheInstance.exports.setCache(queryKey, newCacheEntry);
+
         if (onSettled) {
-            onSettled(onSuccessResult, undefined);
+            // Ensure onSettled gets the final merged data
+            await onSettled(mergedResult, undefined);
         }
         queryLog(
             debug,
-            `Query ${key}: handleFetchSuccess - Called onSuccess/onSettled.`
+            `Query ${key}: handleFetchSuccess - Called onSuccess/onSettled. Updated cross-param cache.`
         );
-        // TODO: Broadcast update
-        return onSuccessResult;
+        console.log("mergedResult", mergedResult);
+        return mergedResult;
     };
 
     const handleFetchError = async (error: TError) => {
@@ -165,7 +211,12 @@ export const injectQuery = <TData, TError>(
         );
 
         if (doRetry) {
-            const delay = getRetryDelay(queryControlRef.current.failureCount, retryDelay, delayUnit, maxRetryDelay);
+            const delay = getRetryDelay(
+                queryControlRef.current.failureCount,
+                retryDelay,
+                delayUnit,
+                maxRetryDelay
+            );
             queryLog(
                 debug,
                 `Query ${key}: handleFetchError - Scheduling retry in ${delay}ms.`
@@ -198,6 +249,7 @@ export const injectQuery = <TData, TError>(
             debug,
             `Query ${key}: handleFetchError - Called onError/onSettled.`
         );
+        errorSignal.set(error);
         if (throwOnError) {
             queryLog(debug, `Query ${key}: handleFetchError - Rethrowing error.`);
             throw error;
@@ -225,7 +277,8 @@ export const injectQuery = <TData, TError>(
                 );
                 return Promise.resolve(undefined);
             }
-
+            errorSignal.set(undefined);
+            wasFetchStartedSignal.set(true);
             const isRetry = queryControlRef.current.isRetry;
             queryControlRef.current.controller = controller;
             queryControlRef.current.isRetry = false; // Reset after capturing
@@ -274,9 +327,14 @@ export const injectQuery = <TData, TError>(
 
             const fetchPromise = (async (): Promise<TData | undefined> => {
                 try {
-                    queryLog(debug, `Query ${key}: queryFactory - Executing queryFn.`);
+                    queryLog(
+                        debug,
+                        `Query ${key}: queryFactory - Executing queryFn.${queryFn}`
+                    );
                     const data = await queryFn();
-                    const mutatedData = await handleFetchSuccess(data);
+
+                    const mutatedData = await handleFetchSuccess(data, merge);
+                    console.log("mutatedData", mutatedData);
                     return mutatedData;
                 } catch (error) {
                     const typedError = error as TError;
@@ -317,9 +375,8 @@ export const injectQuery = <TData, TError>(
             retry,
             retryDelay,
             maxRetries,
-            swr, // Needed for invalidateFn logic
-            debug, // Needed for logging
-            throwOnError, // Needed for error handling
+            swr,
+            debug,
         ],
         {
             runOnInvalidate: true,
@@ -329,6 +386,7 @@ export const injectQuery = <TData, TError>(
                     : initialData,
         }
     );
+
     // --- Cleanup Logic ---
     injectEffect(() => {
         queryLog(debug, `Query ${key}: Cleanup effect (retry timeout) registered.`);
@@ -339,7 +397,7 @@ export const injectQuery = <TData, TError>(
                 queryLog(debug, `Query ${key}: Clearing retry timeout on cleanup.`);
                 clearTimeout(queryControlRef.current.retryTimeoutId);
             }
-            wasTriggeredSignal.set(false);
+            // wasTriggeredSignal.set(false);
         };
     }, []);
 
@@ -360,7 +418,7 @@ export const injectQuery = <TData, TError>(
         key,
         queryControlRef,
         queryApi.signal as MappedSignal<{
-            Events: Record<string, any>;
+            Events: Record<string, unknown>;
             State: PromiseState<TData | undefined>;
         }>,
         promiseMetaSignal,
@@ -392,38 +450,66 @@ export const injectQuery = <TData, TError>(
     const queryStateSignal = injectSignal<
         "error" | "success" | "idle" | "fetching"
     >(queryStateMachineVal);
-    injectEffect(() => {
-        let isIdle = false;
-        let isFetching = false;
-        let isSuccess = false;
-        let isError = false;
-        let isLoading = true;
-        const status = queryStateMachineVal;
-        if (status === "idle") {
-            isIdle = true;
-        } else if (status === "fetching") {
-            isFetching = true;
-        } else if (status === "success") {
-            isSuccess = true;
-        } else if (status === "error") {
-            isError = true;
+
+    // injectQueryLifecycle's TParams generic will be TCombinedParams
+    injectQueryLifecycle<TData, TError, TCombinedParams>(
+        key,
+        wasFetchStartedSignal,
+        queryDef,
+        queryApi.dataSignal,
+        errorSignal,
+        queryStateSignal,
+        {
+            onQueryStarted,
+            onCacheEntryAdded
+        },
+        debug
+    );
+
+    injectEffect(
+        () => {
+            let isIdle = false;
+            let isFetching = false;
+            let isSuccess = false;
+            let isError = false;
+            let isLoading = true;
+            const status = queryStateMachineVal;
+            if (status === "idle") {
+                isIdle = true;
+            } else if (status === "fetching") {
+                isFetching = true;
+                if (swr && merge) {
+                    const prevResult = currentCrossParamCacheInstance.exports.getCache(queryKey)
+                    // very very very ugly hack
+                    if (prevResult) {
+                        queryApi.dataSignal.set(prevResult.data as TData); // type casting cause im not sure how to specify generics on injectAtomInstance
+                    }
+                }
+            } else if (status === "success") {
+                isSuccess = true;
+            } else if (status === "error") {
+                isError = true;
+            }
+            if (queryApi.dataSignal.get() || isError) {
+                isLoading = false;
+            }
+            isIdleSignal.set(isIdle);
+            isFetchingSignal.set(isFetching);
+            isSuccessSignal.set(isSuccess);
+            isErrorSignal.set(isError);
+            queryStateSignal.set(status);
+            isLoadingSignal.set(isLoading);
+        },
+        [queryStateMachineVal],
+        {
+            synchronous: true,
         }
-        if (queryApi.dataSignal.get() || isError) {
-            isLoading = false;
-        }
-        isIdleSignal.set(isIdle);
-        isFetchingSignal.set(isFetching);
-        isSuccessSignal.set(isSuccess);
-        isErrorSignal.set(isError);
-        queryStateSignal.set(status);
-        isLoadingSignal.set(isLoading);
-    }, [queryStateMachineVal], {
-        synchronous: true
-    });
+    );
 
     // queryLog(debug, `Query ${key}: queryState:`, queryState);
 
     const querySignal = injectMappedSignal({
+        error: errorSignal,
         data: queryApi.dataSignal,
         isIdle: isIdleSignal,
         isFetching: isFetchingSignal,

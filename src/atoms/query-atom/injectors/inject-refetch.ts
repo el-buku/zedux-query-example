@@ -41,8 +41,8 @@ const attemptRefetch = async <TData>(
     key: string,
     triggerQuery: () => Promise<void> | void,
     hasFetchedOnce: boolean,
-    promiseStateSignal: MappedSignal<{ Events: Record<string, any>, State: PromiseState<TData | undefined> }>,
-    promiseMetaSignal: MappedSignal<{ Events: Record<string, any>, State: PromiseMeta }>,
+    promiseStateSignal: MappedSignal<{ Events: Record<string, unknown>, State: PromiseState<TData | undefined> }>,
+    promiseMetaSignal: MappedSignal<{ Events: Record<string, unknown>, State: PromiseMeta }>,
     options: Pick<
         QueryAtomOptions<TData>,
         "enabled" | "lazy" | "staleTime" | "debug"
@@ -82,8 +82,8 @@ const attemptRefetch = async <TData>(
 export const injectRefetch = <TData>(
     key: string,
     queryControlRef: MutableRefObject<TQueryControl<TData>>,
-    promiseStateSignal: MappedSignal<{ Events: Record<string, any>, State: PromiseState<TData | undefined> }>,
-    promiseMetaSignal: MappedSignal<{ Events: Record<string, any>, State: PromiseMeta }>,
+    promiseStateSignal: MappedSignal<{ Events: Record<string, unknown>, State: PromiseState<TData | undefined> }>,
+    promiseMetaSignal: MappedSignal<{ Events: Record<string, unknown>, State: PromiseMeta }>,
     triggerQuery: () => void,
     options: Pick<
         QueryAtomOptions<TData>,
