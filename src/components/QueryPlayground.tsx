@@ -337,7 +337,7 @@ const SimpleQueryWithPaginationAndMerging = () => {
       title="SimpleQueryWithPaginationAndMerging"
       buttons={
         <>
-          <Button onClick={() => expos.fetch()}>Fetch Next Page</Button>
+          {/* <Button onClick={() => expos.fetch()}>Fetch Next Page</Button> */}
           <Button onClick={() => expos.invalidate()}>Invalidate</Button>
           <Button onClick={() => setId(id + 1)}>Next Page (id++)</Button>
           {/* <Button onClick={() => setId(0)}>Reset Page to 0</Button> */}
