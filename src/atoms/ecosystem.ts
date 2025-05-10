@@ -1,5 +1,5 @@
 import { createEcosystem } from "@zedux/react";
-export const rootEcosystem = createEcosystem({
+export const createRootEcosystem = () => createEcosystem({
     id: "root",
     ssr: typeof window === "undefined",
 });
