@@ -1,6 +1,6 @@
 import { type AtomApi, injectAtomValue, api as zeduxApi } from "@zedux/react";
 import { GenericEventMap } from "./_types";
-import { authAtom } from "../auth-atom";
+import { authAtom } from "../auth/auth-atom";
 import { AUTHENTICATED_QUERY_TAG } from "./_utils";
 import { QUERY_DEF_BRAND, type TQueryDef, type TQueryFn } from "./_types";
 
@@ -37,7 +37,7 @@ export const authedQueryExecutor = <TData, TParams extends unknown[]>(
   tags: string[] = [],
 ): ConfiguredQueryExecutor<TData, TParams> => {
   const authToken = injectAtomValue(authAtom);
-  const enabledCondition = enabled && !!authToken;
+  const enabledCondition = enabled && !!authToken.token;
   return queryExecutor(fetcher, params, enabledCondition, [
     AUTHENTICATED_QUERY_TAG,
     ...tags,

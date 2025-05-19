@@ -16,7 +16,7 @@ import { authedQueryExecutor, queryExecutor } from "~/atoms/query-atom/query-exe
 import { Route } from "~/routes/index";
 import { QueryDisplay } from "./QueryDisplay";
 import { Await } from "@tanstack/react-router";
-import { authAtom } from "~/atoms/auth-atom";
+import { authAtom } from "~/atoms/auth/auth-atom";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -372,11 +372,10 @@ const atomWithBackendApiAuthed = queryAtom(
 
 const EagerAuthedQuery = ()=>{
     const [data, expos] = useAtomState(atomWithBackendApiAuthed);
-    const [token, {setToken}] = useAtomState(authAtom);
     return (
       <div className="w-[30rem] flex flex-col">
         <h2 className="text-xl font-semibold text-white mb-3">
-          SimpleLazyQueryAuthed token: {token}
+          EagerQueryAuthed
         </h2>
 
         <span className="mt-auto text-white text-11 font-book block w-[10rem]">
@@ -391,8 +390,7 @@ const EagerAuthedQuery = ()=>{
         <div className="flex gap-4 mt-8">
           <button onClick={() => expos.fetch()}>Fetch</button>
           <button onClick={() => expos.invalidate()}>Invalidate</button>
-          <button onClick={() => setToken(null)}>Set Token to null</button>
-          <button onClick={() => setToken("SOME_TOKEN")}>Set Token to "SOME_TOKEN"</button>
+
         </div>
       </div>
     )
@@ -407,13 +405,20 @@ export const QueryPlayground = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+  const [token, {setToken}] = useAtomState(authAtom);
+
   return (
     <div className="flex flex-col h-screen w-full mt-8">
       <h1 className="text-2xl font-semibold text-white mb-4 px-4 md:px-8 pt-4 flex-shrink-0">
-        Query Playground - {seconds} seconds passed
+        Query Playground - {seconds} seconds passed - Auth token: {token?.token}
       </h1>
+       <div className="ml-8 flex gap-4">
+       <Button onClick={() => window.location.href = "/?token=SOME_TOKEN"}>Set token via redirect</Button>
+       <Button onClick={() => setToken(null)}>invalidate auth</Button>
+       <Button onClick={() => setToken({token: "SOME_TOKEN"})}>Set Token client-side</Button>
+       </div>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(30rem,1fr))] grid-auto-rows-[30rem] gap-7 w-full p-8">
-          <Suspense fallback={<div>Loading SimpleQuery...</div>}>
+          {/* <Suspense fallback={<div>Loading SimpleQuery...</div>}>
             <SimpleQuery />
           </Suspense>
 
@@ -442,7 +447,7 @@ export const QueryPlayground = () => {
           </Suspense>
           <Suspense fallback={<div>Loading SimpleQueryWithPaginationAndMerging...</div>}>
             <SimpleQueryWithPaginationAndMerging />
-          </Suspense>
+          </Suspense> */}
           <Suspense fallback={<div>Loading EagerAuthedQuery...</div>}>
             <EagerAuthedQuery />
           </Suspense>

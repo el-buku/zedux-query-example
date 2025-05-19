@@ -17,6 +17,9 @@ dependencies:
   '@tanstack/start-server-core':
     specifier: ^1.119.0
     version: 1.119.0
+  '@tanstack/zod-adapter':
+    specifier: ^1.120.5
+    version: 1.120.5(@tanstack/react-router@1.119.0)(zod@3.24.4)
   '@zedux/machines':
     specifier: 2.0.0-rc.9
     version: 2.0.0-rc.9(@zedux/atoms@2.0.0-rc.9)(@zedux/core@2.0.0-rc.9)
@@ -38,6 +41,9 @@ dependencies:
   vinxi:
     specifier: 0.5.3
     version: 0.5.3(@types/node@22.5.4)
+  zod:
+    specifier: ^3.24.4
+    version: 3.24.4
 
 devDependencies:
   '@types/node':
@@ -2534,6 +2540,17 @@ packages:
   /@tanstack/virtual-file-routes@1.115.0:
     resolution: {integrity: sha512-XLUh1Py3AftcERrxkxC5Y5m5mfllRH3YR6YVlyjFgI2Tc2Ssy2NKmQFQIafoxfW459UJ8Dn81nWKETEIJifE4g==}
     engines: {node: '>=12'}
+    dev: false
+
+  /@tanstack/zod-adapter@1.120.5(@tanstack/react-router@1.119.0)(zod@3.24.4):
+    resolution: {integrity: sha512-EXFVr2rw9qy5Ad9fogxo++A10A555XrhNyKZ7pnPV84HU/Xy3C2zP8UaaoTlTDr+/BJ2yzyyM47yK62a03ofbA==}
+    engines: {node: '>=12'}
+    peerDependencies:
+      '@tanstack/react-router': '>=1.43.2'
+      zod: ^3.23.8
+    dependencies:
+      '@tanstack/react-router': 1.119.0(react-dom@19.2.0-canary-38ef6550-20250508)(react@19.2.0-canary-38ef6550-20250508)
+      zod: 3.24.4
     dev: false
 
   /@types/babel__core@7.20.5:

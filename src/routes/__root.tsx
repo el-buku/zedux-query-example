@@ -5,6 +5,7 @@ import {
   Scripts,
   createRootRoute,
   createRootRouteWithContext,
+  stripSearchParams,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { EcosystemProvider, getDefaultEcosystem, setDefaultEcosystem } from "@zedux/react";
@@ -14,11 +15,26 @@ import { createRootEcosystem } from "~/atoms/ecosystem";
 import { DefaultCatchBoundary } from "~/components/DefaultCatchBoundary";
 import { NotFound } from "~/components/NotFound";
 import appCss from "~/styles/app.css?url";
+import { authAtom, AuthState, EMPTY_AUTH_STATE } from "~/atoms/auth/auth-atom";
+import { getSessionAuth, setSessionAuth } from "~/atoms/auth/auth-fns";
+import { zodValidator } from "@tanstack/zod-adapter";
+import * as z from "zod";
 
 export type TRootRouteContext = {
   rootEcosystem: ReturnType<typeof createRootEcosystem>;
+  authState: AuthState;
 };
 export const Route = createRootRouteWithContext<TRootRouteContext>()({
+  validateSearch:zodValidator(
+    z.object({
+      token: z.string().optional(),
+    })
+  ),
+  search: {
+    middlewares: [
+      stripSearchParams(["token"]), // when redirected with a token query string param, we want the loader to get the token and then strip the param
+    ],
+  },
   head: () => ({
     meta: [
       {
@@ -62,6 +78,29 @@ export const Route = createRootRouteWithContext<TRootRouteContext>()({
   },
   notFoundComponent: () => <NotFound />,
   component: RootComponent,
+  beforeLoad: async (ctx) => {
+    if (ctx.search.token) { // token set via redirect, such as Google SSO
+      const newAuthState = {
+        token: ctx.search.token,
+      } as AuthState;
+      await setSessionAuth({ data: newAuthState });
+      ctx.context.rootEcosystem
+        .getNodeOnce(authAtom)
+        .exports.setToken(newAuthState);
+      return {
+        authState: newAuthState,
+      };
+    }
+    if (ctx.context.authState.token === EMPTY_AUTH_STATE.token) {
+      const authState = await getSessionAuth();
+      ctx.context.rootEcosystem
+        .getNodeOnce(authAtom)
+        .exports.setToken(authState ?? EMPTY_AUTH_STATE);
+      return {
+        authState: authState ?? EMPTY_AUTH_STATE,
+      };
+    }
+  },
   loader: (ctx) => {
     const snapshot = ctx.context.rootEcosystem.dehydrate({
       exclude: ["unserializable"],
