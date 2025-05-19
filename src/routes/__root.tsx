@@ -7,7 +7,7 @@ import {
   createRootRouteWithContext,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import { EcosystemProvider } from "@zedux/react";
+import { EcosystemProvider, getDefaultEcosystem, setDefaultEcosystem } from "@zedux/react";
 import * as React from "react";
 import { useMemo } from "react";
 import { createRootEcosystem } from "~/atoms/ecosystem";
@@ -67,8 +67,10 @@ export const Route = createRootRouteWithContext<TRootRouteContext>()({
       exclude: ["unserializable"],
       excludeTags: ["unserializable"],
     });
-    ctx.context.rootEcosystem.reset();
-    return {
+    if (typeof window === "undefined") {
+      ctx.context.rootEcosystem.reset();
+    }
+        return {
       snapshot,
     };
   },
@@ -76,13 +78,22 @@ export const Route = createRootRouteWithContext<TRootRouteContext>()({
 
 function RootComponent() {
   const loaded = Route.useLoaderData();
-  const ecosystem = useMemo(() => {
-    const newEcosystem = createRootEcosystem();
-    newEcosystem.hydrate(loaded.snapshot);
-    // NOTE: atoms can be preloaded here via `newEcosystem.getNode(myAtom)`
-
-    return newEcosystem;
-  }, []);
+  // This stuff needs to run synchronously before the component is mounted, so no useMemo
+  const defaultEcosystem = getDefaultEcosystem();
+  const wasAlreadyInitialized = defaultEcosystem.id === "root";
+  const ecosystem = wasAlreadyInitialized
+    ? defaultEcosystem
+    : createRootEcosystem();
+  const hasInited = React.useRef(false);
+  if (!hasInited.current) {
+    ecosystem.hydrate(loaded.snapshot, {
+      retroactive: true,
+    });
+    hasInited.current = true;
+  }
+  if (!wasAlreadyInitialized) {
+    setDefaultEcosystem(ecosystem);
+  }
   if (!loaded) {
     return <div>Loading...</div>;
   }

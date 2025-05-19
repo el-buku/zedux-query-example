@@ -1,6 +1,7 @@
 import {
   api,
   atom,
+  getDefaultEcosystem,
   injectAtomValue,
   injectMemo,
   useAtomInstance,
@@ -11,10 +12,11 @@ import {
 import { Suspense, useEffect, useId, useState } from "react";
 import { Button } from "./button";
 import { queryAtom } from "~/atoms/query-atom/query-atom";
-import { queryExecutor } from "~/atoms/query-atom/query-executor";
+import { authedQueryExecutor, queryExecutor } from "~/atoms/query-atom/query-executor";
 import { Route } from "~/routes/index";
 import { QueryDisplay } from "./QueryDisplay";
 import { Await } from "@tanstack/react-router";
+import { authAtom } from "~/atoms/auth-atom";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -348,6 +350,53 @@ const SimpleQueryWithPaginationAndMerging = () => {
     </QueryDisplay>
   );
 };
+const atomWithBackendApiAuthed = queryAtom(
+  "_________QUERY!!!!_____atom-with-backend-api-authed-eager",
+  () => {
+    return authedQueryExecutor(async ()=>{
+        await wait(1000);
+        return {token: getDefaultEcosystem().getOnce(authAtom)}
+    }, []);
+  },
+  {
+    lazy: false,
+    ttl: 0,
+    staleTime: 0,
+    // ttl: 1000 * 60 * 60 * 24,
+    debug: true,
+    suspense: true,
+    throwOnError: false,
+    swr: false,
+  },
+);
+
+const EagerAuthedQuery = ()=>{
+    const [data, expos] = useAtomState(atomWithBackendApiAuthed);
+    const [token, {setToken}] = useAtomState(authAtom);
+    return (
+      <div className="w-[30rem] flex flex-col">
+        <h2 className="text-xl font-semibold text-white mb-3">
+          SimpleLazyQueryAuthed token: {token}
+        </h2>
+
+        <span className="mt-auto text-white text-11 font-book block w-[10rem]">
+          {data.status} -{" "}
+          {data && (
+            <>
+              <div>QUERY DATA: {JSON.stringify(data)}</div>
+            </>
+          )}
+        </span>
+
+        <div className="flex gap-4 mt-8">
+          <button onClick={() => expos.fetch()}>Fetch</button>
+          <button onClick={() => expos.invalidate()}>Invalidate</button>
+          <button onClick={() => setToken(null)}>Set Token to null</button>
+          <button onClick={() => setToken("SOME_TOKEN")}>Set Token to "SOME_TOKEN"</button>
+        </div>
+      </div>
+    )
+}
 
 
 export const QueryPlayground = () => {
@@ -394,6 +443,10 @@ export const QueryPlayground = () => {
           <Suspense fallback={<div>Loading SimpleQueryWithPaginationAndMerging...</div>}>
             <SimpleQueryWithPaginationAndMerging />
           </Suspense>
+          <Suspense fallback={<div>Loading EagerAuthedQuery...</div>}>
+            <EagerAuthedQuery />
+          </Suspense>
+
         </div>
       {/* <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-4">
       </div> */}
