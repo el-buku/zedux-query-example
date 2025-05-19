@@ -363,7 +363,7 @@ const atomWithBackendApiAuthed = queryAtom(
     ttl: 0,
     staleTime: 0,
     // ttl: 1000 * 60 * 60 * 24,
-    debug: true,
+    debug: false,
     suspense: true,
     throwOnError: false,
     swr: false,
@@ -371,29 +371,75 @@ const atomWithBackendApiAuthed = queryAtom(
 );
 
 const EagerAuthedQuery = ()=>{
-    const [data, expos] = useAtomState(atomWithBackendApiAuthed);
-    return (
-      <div className="w-[30rem] flex flex-col">
-        <h2 className="text-xl font-semibold text-white mb-3">
-          EagerQueryAuthed
-        </h2>
+  const [data, expos] = useAtomState(atomWithBackendApiAuthed);
+  return (
+    <div className="w-[30rem] flex flex-col">
+      <h2 className="text-xl font-semibold text-white mb-3">
+        EagerQueryAuthed
+      </h2>
 
-        <span className="mt-auto text-white text-11 font-book block w-[10rem]">
-          {data.status} -{" "}
-          {data && (
-            <>
-              <div>QUERY DATA: {JSON.stringify(data)}</div>
-            </>
-          )}
-        </span>
+      <span className="mt-auto text-white text-11 font-book block w-[10rem]">
+        {data.status} -{" "}
+        {data && (
+          <>
+            <div>QUERY DATA: {JSON.stringify(data)}</div>
+          </>
+        )}
+      </span>
 
-        <div className="flex gap-4 mt-8">
-          <button onClick={() => expos.fetch()}>Fetch</button>
-          <button onClick={() => expos.invalidate()}>Invalidate</button>
+      <div className="flex gap-4 mt-8">
+        <button onClick={() => expos.fetch()}>Fetch</button>
+        <button onClick={() => expos.invalidate()}>Invalidate</button>
 
-        </div>
       </div>
-    )
+    </div>
+  )
+}
+const EagerAuthedQueryWithSelector = ()=>{
+  const data = useAtomValue(({ get }) => get(atomWithBackendApiAuthed))
+  return (
+    <div className="w-[30rem] flex flex-col">
+      <h2 className="text-xl font-semibold text-white mb-3">
+        EagerQueryAuthed WITH SELECTOR - this still doesnt work
+      </h2>
+
+      <span className="mt-auto text-white text-11 font-book block w-[10rem]">
+        {data.status} -{" "}
+        {data && (
+          <>
+            <div>QUERY DATA: {JSON.stringify(data)}</div>
+          </>
+        )}
+      </span>
+
+    </div>
+  )
+}
+
+const myRetardedAtom = atom('myRetardedAtom', () => {
+  const value = injectAtomValue(atomWithBackendApiAuthed)
+  return value
+})
+
+const EagerAuthedQueryWithRetardedAtomWrapper = ()=>{
+  const data = useAtomValue(myRetardedAtom)
+  return (
+    <div className="w-[30rem] flex flex-col">
+      <h2 className="text-xl font-semibold text-white mb-3">
+        EagerQueryAuthed WITH ATOM WRAPPER - this does work
+      </h2>
+
+      <span className="mt-auto text-white text-11 font-book block w-[10rem]">
+        {data.status} -{" "}
+        {data && (
+          <>
+            <div>QUERY DATA: {JSON.stringify(data)}</div>
+          </>
+        )}
+      </span>
+
+    </div>
+  )
 }
 
 
@@ -410,14 +456,14 @@ export const QueryPlayground = () => {
   return (
     <div className="flex flex-col h-screen w-full mt-8">
       <h1 className="text-2xl font-semibold text-white mb-4 px-4 md:px-8 pt-4 flex-shrink-0">
-        Query Playground - {seconds} seconds passed - Auth token: {token?.token}
+        Query Playground - {seconds} seconds passed - Auth token: {token?.token??"null"}
       </h1>
        <div className="ml-8 flex gap-4">
        <Button onClick={() => window.location.href = "/?token=SOME_TOKEN"}>Set token via redirect</Button>
-       <Button onClick={() => setToken(null)}>invalidate auth</Button>
-       <Button onClick={() => setToken({token: "SOME_TOKEN"})}>Set Token client-side</Button>
+       <Button onClick={() => setToken(null, true)}>invalidate auth</Button>
+       <Button onClick={() => setToken({token: "SOME_TOKEN"}, true)}>Set Token client-side</Button>
        </div>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(30rem,1fr))] grid-auto-rows-[30rem] gap-7 w-full p-8">
+        {/* <div className="grid grid-cols-[repeat(auto-fit,minmax(30rem,1fr))] grid-auto-rows-[30rem] gap-7 w-full p-8"> */}
           {/* <Suspense fallback={<div>Loading SimpleQuery...</div>}>
             <SimpleQuery />
           </Suspense>
@@ -448,10 +494,18 @@ export const QueryPlayground = () => {
           <Suspense fallback={<div>Loading SimpleQueryWithPaginationAndMerging...</div>}>
             <SimpleQueryWithPaginationAndMerging />
           </Suspense> */}
-          <Suspense fallback={<div>Loading EagerAuthedQuery...</div>}>
-            <EagerAuthedQuery />
-          </Suspense>
 
+        {/* </div> */}
+        <div className="flex flex-col gap-10 ml-12 mt-12">
+        <Suspense fallback={<div>Loading EagerAuthedQuery...</div>}>
+          <EagerAuthedQuery />
+        </Suspense>
+        <Suspense fallback={<div>Loading EagerAuthedQueryWithSelector...</div>}>
+          <EagerAuthedQueryWithSelector />
+        </Suspense>
+        <Suspense fallback={<div>Loading EagerAuthedQueryWithRetardedAtomWrapper...</div>}>
+          <EagerAuthedQueryWithRetardedAtomWrapper />
+        </Suspense>
         </div>
       {/* <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-4">
       </div> */}

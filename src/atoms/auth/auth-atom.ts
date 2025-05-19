@@ -30,6 +30,7 @@ export const authAtom = atom("auth-atom", () => {
     const state = {
         ...authState,
     };
+    console.log('state', state)
     return api(state).setExports({
         setToken: async (
             newAuthState: AuthState | null,
@@ -45,10 +46,10 @@ export const authAtom = atom("auth-atom", () => {
             } else {
                 console.log("invalidation");
                 authStateSignal.set(EMPTY_AUTH_STATE);
+                await resetSession();
                 console.log("invalidating atoms");
                 invalidateAuthedAtoms();
                 console.log("invalidating session");
-                await resetSession();
                 if (invalidateRouter) {
                     console.log("invalidating router");
                     ecosystemInvalidateRouter(ecosystem);

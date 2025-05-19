@@ -8,9 +8,9 @@ import {
   stripSearchParams,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import { EcosystemProvider, getDefaultEcosystem, setDefaultEcosystem } from "@zedux/react";
+import { AtomProvider, EcosystemProvider, getDefaultEcosystem, setDefaultEcosystem, useAtomInstance } from "@zedux/react";
 import * as React from "react";
-import { useMemo } from "react";
+import { ReactNode, useMemo } from "react";
 import { createRootEcosystem } from "~/atoms/ecosystem";
 import { DefaultCatchBoundary } from "~/components/DefaultCatchBoundary";
 import { NotFound } from "~/components/NotFound";
@@ -19,6 +19,7 @@ import { authAtom, AuthState, EMPTY_AUTH_STATE } from "~/atoms/auth/auth-atom";
 import { getSessionAuth, setSessionAuth } from "~/atoms/auth/auth-fns";
 import { zodValidator } from "@tanstack/zod-adapter";
 import * as z from "zod";
+import { routerAtom } from "~/atoms/router-atom";
 
 export type TRootRouteContext = {
   rootEcosystem: ReturnType<typeof createRootEcosystem>;
@@ -111,12 +112,14 @@ export const Route = createRootRouteWithContext<TRootRouteContext>()({
     }
         return {
       snapshot,
+      authState: ctx.context.authState,
     };
   },
 });
 
 function RootComponent() {
   const loaded = Route.useLoaderData();
+  console.log("session authstate", loaded.authState);
   // This stuff needs to run synchronously before the component is mounted, so no useMemo
   const defaultEcosystem = getDefaultEcosystem();
   const wasAlreadyInitialized = defaultEcosystem.id === "root";
@@ -145,9 +148,17 @@ function RootComponent() {
   );
 }
 
+function RouterAtomContextProvider({ children }: { children: ReactNode }) {
+  // const router = useRouter();
+  const routerAtomInstance = useAtomInstance(routerAtom);
+
+  return <AtomProvider instance={routerAtomInstance}>{children}</AtomProvider>;
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html>
+   <RouterAtomContextProvider>
+     <html>
       <head>
         <HeadContent />
       </head>
@@ -156,5 +167,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <Scripts />
       </body>
     </html>
+   </RouterAtomContextProvider>
   );
 }
